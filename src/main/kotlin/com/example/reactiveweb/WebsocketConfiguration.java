@@ -8,35 +8,40 @@ import org.springframework.web.reactive.socket.WebSocketHandler;
 import org.springframework.web.reactive.socket.WebSocketMessage;
 import org.springframework.web.reactive.socket.server.support.WebSocketHandlerAdapter;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.SynchronousSink;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Collections;
-import java.util.function.Consumer;
 
 /**
 	* @author <a href="mailto:josh@joshlong.com">Josh Long</a>
 	*/
 @Configuration
-class GreetingsWebSocketController {
+public class WebsocketConfiguration {
 
 		@Bean
-		WebSocketHandlerAdapter wsha() {
+		WebSocketHandlerAdapter webSocketHandlerAdapter() {
 				return new WebSocketHandlerAdapter();
 		}
 
 		@Bean
-		WebSocketHandler wsHandler() {
-				return session ->
-					session.send(
-						Flux.generate((Consumer<SynchronousSink<WebSocketMessage>>) sink -> sink.next(session.textMessage("Hello " + System.currentTimeMillis())))
-							.delayElements(Duration.ofSeconds(1)));
+		WebSocketHandler webSocketHandler() {
+				return session -> {
+
+						Flux<WebSocketMessage> messageFlux = Flux
+							.<Greeting>generate(sink -> sink.next(new Greeting("Hello @" + Instant.now().toString())))
+							.map(g -> session.textMessage(g.getText()))
+							.delayElements(Duration.ofSeconds(1))
+							.doFinally(signalType -> System.out.println("goodbye."));
+
+						return session.send(messageFlux);
+				};
 		}
 
 		@Bean
-		HandlerMapping simpleUrlHandlerMapping() {
+		HandlerMapping handlerMapping() {
 				SimpleUrlHandlerMapping simpleUrlHandlerMapping = new SimpleUrlHandlerMapping();
-				simpleUrlHandlerMapping.setUrlMap(Collections.singletonMap("/ws/hello", wsHandler()));
+				simpleUrlHandlerMapping.setUrlMap(Collections.singletonMap("/ws/hello", webSocketHandler()));
 				simpleUrlHandlerMapping.setOrder(10);
 				return simpleUrlHandlerMapping;
 		}
